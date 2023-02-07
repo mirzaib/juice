@@ -1,0 +1,44 @@
+import cv2
+from IPython.display import display
+from IPython.display import Javascript
+
+face_cascade = cv2.CascadeClassifier('path/to/haarcascade_frontalface_default.xml')
+
+def take_photo(filename='photo.jpg', quality=0.8):
+    js = Javascript('''
+        async function take_photo(quality) {
+            const div = document.createElement('div');
+            const capture = document.createElement('button');
+            capture.textContent = 'capture';
+            div.appendChild(capture);
+
+            const video = document.createElement('video');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            await video.play();
+
+            div.appendChild(video);
+            document.body.appendChild(div);
+
+            google.colab.output.setIframeHeight(document.documentElement.scrollHeight, true);
+
+            await new Promise((resolve) => capture.onclick = resolve);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            stream.getVideoTracks()[0].stop();
+            div.remove();
+
+            return canvas.toDataURL('image/jpeg', quality);
+        }
+    ''')
+    display(js)
+    data = eval_js(f'take_photo({quality})')
+    img = js_to_image(data)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    faces = face_cascade.detectMultiScale(gray)
+    for (x, y, w, h) in faces:
+        img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    cv2.imwrite(filename, img)
